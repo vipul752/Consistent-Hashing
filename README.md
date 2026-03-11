@@ -9,34 +9,34 @@ Consistent hashing is a distributed hashing technique that minimizes key redistr
 ## Architecture
 
 ```
-┌─────────────────┐
-│ Registry Server │  ← Maintains list of active servers
-│   (port 3000)   │
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │         │
-┌───▼───┐ ┌───▼───┐
-│Server │ │Server │  ← Backend servers (auto-register)
-│ 4000  │ │ 4001  │
-└───────┘ └───────┘
-
-┌─────────────────┐
-│   Visualizer    │  ← Interactive hash ring visualization
-│   (port 8000)   │
-└─────────────────┘
+       Internet
+          │
+┌─────────▼─────────┐
+│ Visualizer +      │  ← Single server (deployment-ready)
+│ Registry          │
+│ (port 8000)       │
+└─────────┬─────────┘
+          │
+    ┌─────┴─────┐
+    │           │
+┌───▼───┐   ┌───▼───┐
+│Server │   │Server │  ← Simulated servers (in-memory)
+│ 5000  │   │ 5001  │
+└───────┘   └───────┘
 ```
+
+The visualizer and registry are merged into a single service for easy cloud deployment (single port).
 
 ## Project Structure
 
 | File                | Description                                                      |
 | ------------------- | ---------------------------------------------------------------- |
 | `hashRing.js`       | Core ConsistentHash class with SHA-256 hashing and binary search |
-| `registryServer.js` | Central registry that tracks active servers                      |
+| `visualizer.js`     | Combined server: visualization UI + registry + simulated servers |
+| `registryServer.js` | Standalone registry (for local multi-service setup)              |
 | `registry.js`       | Module for server registration/removal operations                |
 | `server.js`         | Backend server that auto-registers with the registry             |
 | `client.js`         | Demo client showing key-to-server mapping                        |
-| `visualizer.js`     | Express server serving the visualization UI                      |
 | `public/index.html` | Interactive canvas-based hash ring visualization                 |
 
 ## Getting Started
@@ -52,39 +52,47 @@ Consistent hashing is a distributed hashing technique that minimizes key redistr
 npm install
 ```
 
-### Running the System
+### Running Locally
 
-1. **Start the Registry Server**
+```bash
+npm start
+```
 
-   ```bash
-   node registryServer.js
-   ```
+Open http://localhost:8000 to see the interactive hash ring visualization.
 
-   The registry runs on port 3000 and tracks all active servers.
+For development with auto-reload:
 
-2. **Start Backend Servers** (in separate terminals)
+```bash
+npm run visualize
+```
+
+### Deployment
+
+This project is ready for deployment on platforms like **Render**, **Railway**, or **Fly.io**.
+
+| Platform | Difficulty | Cost |
+| -------- | ---------- | ---- |
+| Render   | ⭐ easiest | free |
+| Railway  | easy       | free |
+| Fly.io   | medium     | free |
+
+The app uses `process.env.PORT` so it works automatically with cloud platforms.
+
+### Advanced Usage (Local Development)
+
+For testing with external servers:
+
+1. **Start separate backend servers** (optional)
 
    ```bash
    node server.js 4000
    node server.js 4001
-   node server.js 4002
    ```
 
-   Each server auto-registers with the registry on startup and deregisters on shutdown (Ctrl+C).
-
-3. **Run the Client Demo**
-
+2. **Run the client demo**
    ```bash
    node client.js
    ```
-
-   Shows which server handles each key based on the hash ring.
-
-4. **Start the Visualizer**
-   ```bash
-   npm run visualize
-   ```
-   Open http://localhost:8000 to see the interactive hash ring visualization.
 
 ## How It Works
 
@@ -114,9 +122,9 @@ getServer(dataKey) {
 ### Key Features
 
 - **O(log n)** server lookup using binary search
-- **Automatic registration** - servers register/deregister automatically
+- **Single-port deployment** - merged visualizer + registry for easy cloud hosting
 - **Real-time visualization** - watch the ring update as servers change
-- **Graceful shutdown** - servers deregister on SIGINT
+- **Simulated servers** - add/remove servers via UI buttons
 
 ## Visualization
 
