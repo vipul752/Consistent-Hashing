@@ -1,0 +1,407 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Consistent Hash Ring</title>
+    <style>
+      body {
+        font-family: Arial;
+        text-align: center;
+        background: #1a1a2e;
+        color: white;
+        padding: 20px;
+      }
+
+      h2 {
+        color: #eee;
+        margin-bottom: 5px;
+      }
+
+      canvas {
+        border: 2px solid #333;
+        border-radius: 10px;
+        background: #16213e;
+      }
+
+      .controls {
+        margin: 15px 0;
+      }
+
+      button {
+        margin: 5px;
+        padding: 12px 24px;
+        cursor: pointer;
+        background: #0f3460;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+
+      button:hover {
+        background: #e94560;
+        transform: scale(1.05);
+      }
+
+      .btn-add {
+        background: #00b894;
+      }
+      .btn-add:hover {
+        background: #00cec9;
+      }
+      .btn-remove {
+        background: #d63031;
+      }
+      .btn-remove:hover {
+        background: #ff7675;
+      }
+
+      .legend {
+        margin-top: 15px;
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .server-dot {
+        background: #4fc3f7;
+      }
+      .key-dot {
+        background: #ef5350;
+      }
+
+      .status {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #888;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2>Consistent Hash Ring</h2>
+    <p style="color: #888; margin-top: 0">Interactive Visualization</p>
+
+    <div class="controls">
+      <button class="btn-add" onclick="addServer()">+ Add Server</button>
+      <button class="btn-remove" onclick="removeServer()">
+        - Remove Server
+      </button>
+      <button onclick="loadRing()">Refresh</button>
+    </div>
+
+    <canvas id="ring" width="700" height="700"></canvas>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot server-dot"></div>
+        <span>Servers</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot key-dot"></div>
+        <span>Keys</span>
+      </div>
+    </div>
+
+    <div class="status" id="status">Servers: 0 | Keys: 0</div>
+
+    <script>
+      const canvas = document.getElementById("ring");
+      const ctx = canvas.getContext("2d");
+
+      const centerX = 350;
+      const centerY = 350;
+      const radius = 250;
+      const MAX_HASH = 4294967295;
+
+      let servers = [];
+      let keys = [];
+      let prevKeyPositions = {}; // Store previous positions for animation
+      let animating = false;
+
+      // Format hash for display
+      function formatHash(hash) {
+        if (hash >= 1000000) return (hash / 1000000).toFixed(1) + "M";
+        if (hash >= 1000) return (hash / 1000).toFixed(1) + "K";
+        return hash;
+      }
+
+      function drawRing() {
+        ctx.clearRect(0, 0, 700, 700);
+
+        // Draw outer ring with gradient
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.strokeStyle = "#555";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Draw ring labels (0, 2^32/4, 2^32/2, 3*2^32/4)
+        const labels = [
+          { pos: 0, text: "0" },
+          { pos: 0.25, text: "2³⁰" },
+          { pos: 0.5, text: "2³¹" },
+          { pos: 0.75, text: "3×2³⁰" },
+        ];
+
+        labels.forEach((label) => {
+          const angle = label.pos * 2 * Math.PI - Math.PI / 2;
+          const x = centerX + (radius + 25) * Math.cos(angle);
+          const y = centerY + (radius + 25) * Math.sin(angle);
+
+          ctx.fillStyle = "#666";
+          ctx.font = "bold 11px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(label.text, x, y + 4);
+
+          // Draw tick mark
+          const tickX1 = centerX + radius * Math.cos(angle);
+          const tickY1 = centerY + radius * Math.sin(angle);
+          const tickX2 = centerX + (radius + 8) * Math.cos(angle);
+          const tickY2 = centerY + (radius + 8) * Math.sin(angle);
+
+          ctx.beginPath();
+          ctx.moveTo(tickX1, tickY1);
+          ctx.lineTo(tickX2, tickY2);
+          ctx.strokeStyle = "#666";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+      }
+
+      function drawGlowingLine(keyAngle, serverAngle, progress = 1) {
+        const keyX = centerX + (radius - 40) * Math.cos(keyAngle);
+        const keyY = centerY + (radius - 40) * Math.sin(keyAngle);
+        const serverX = centerX + radius * Math.cos(serverAngle);
+        const serverY = centerY + radius * Math.sin(serverAngle);
+
+        // Calculate intermediate point based on progress
+        const currentX = keyX + (serverX - keyX) * progress;
+        const currentY = keyY + (serverY - keyY) * progress;
+
+        // Glow effect
+        ctx.beginPath();
+        ctx.moveTo(keyX, keyY);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = "rgba(255, 107, 107, 0.6)";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Main line
+        ctx.beginPath();
+        ctx.moveTo(keyX, keyY);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = "#ff6b6b";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      function drawServer(angle, label, hash) {
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+
+        // Glow effect
+        ctx.beginPath();
+        ctx.arc(x, y, 14, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(79, 195, 247, 0.3)";
+        ctx.fill();
+
+        // Main node
+        ctx.beginPath();
+        ctx.arc(x, y, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = "#4fc3f7";
+        ctx.fill();
+
+        // Label
+        ctx.fillStyle = "white";
+        ctx.font = "bold 11px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText(label, x + 15, y);
+
+        // Hash value
+        ctx.fillStyle = "#888";
+        ctx.font = "9px Arial";
+        ctx.fillText(`h:${formatHash(hash)}`, x + 15, y + 12);
+      }
+
+      function drawKey(x, y, label, hash) {
+        // Node
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = "#ef5350";
+        ctx.fill();
+
+        // Label with hash
+        ctx.fillStyle = "#ddd";
+        ctx.font = "10px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText(`${label} (${formatHash(hash)})`, x + 10, y + 4);
+      }
+
+      function getKeyPosition(hash) {
+        const angle = (hash / MAX_HASH) * 2 * Math.PI - Math.PI / 2;
+        return {
+          x: centerX + (radius - 40) * Math.cos(angle),
+          y: centerY + (radius - 40) * Math.sin(angle),
+          angle: angle,
+        };
+      }
+
+      function animateKeys(newKeys, duration = 500) {
+        const startTime = performance.now();
+        const keyAnimations = [];
+
+        newKeys.forEach((k) => {
+          const newPos = getKeyPosition(k.hash);
+          const prevPos = prevKeyPositions[k.key] || newPos;
+
+          keyAnimations.push({
+            key: k.key,
+            hash: k.hash,
+            server: k.server,
+            startX: prevPos.x,
+            startY: prevPos.y,
+            endX: newPos.x,
+            endY: newPos.y,
+            startAngle: prevPos.angle,
+            endAngle: newPos.angle,
+          });
+        });
+
+        function frame(time) {
+          const progress = Math.min((time - startTime) / duration, 1);
+          const easeProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+
+          drawRing();
+
+          // Draw servers
+          servers.forEach((s) => {
+            const angle = (s.hash / MAX_HASH) * 2 * Math.PI - Math.PI / 2;
+            drawServer(angle, s.server, s.hash);
+          });
+
+          // Draw keys with animation
+          keyAnimations.forEach((k) => {
+            const x = k.startX + (k.endX - k.startX) * easeProgress;
+            const y = k.startY + (k.endY - k.startY) * easeProgress;
+            const currentAngle =
+              k.startAngle + (k.endAngle - k.startAngle) * easeProgress;
+
+            // Draw line to server
+            const targetServer = servers.find((s) => s.server === k.server);
+            if (targetServer) {
+              const serverAngle =
+                (targetServer.hash / MAX_HASH) * 2 * Math.PI - Math.PI / 2;
+              drawGlowingLine(currentAngle, serverAngle);
+            }
+
+            drawKey(x, y, k.key, k.hash);
+          });
+
+          if (progress < 1) {
+            requestAnimationFrame(frame);
+          } else {
+            // Store final positions
+            keyAnimations.forEach((k) => {
+              prevKeyPositions[k.key] = {
+                x: k.endX,
+                y: k.endY,
+                angle: k.endAngle,
+              };
+            });
+            animating = false;
+          }
+        }
+
+        animating = true;
+        requestAnimationFrame(frame);
+      }
+
+      function renderStatic() {
+        drawRing();
+
+        // Draw servers
+        servers.forEach((s) => {
+          const angle = (s.hash / MAX_HASH) * 2 * Math.PI - Math.PI / 2;
+          drawServer(angle, s.server, s.hash);
+        });
+
+        // Draw keys
+        keys.forEach((k) => {
+          const pos = getKeyPosition(k.hash);
+
+          // Draw line to server
+          const targetServer = servers.find((s) => s.server === k.server);
+          if (targetServer) {
+            const serverAngle =
+              (targetServer.hash / MAX_HASH) * 2 * Math.PI - Math.PI / 2;
+            drawGlowingLine(pos.angle, serverAngle);
+          }
+
+          drawKey(pos.x, pos.y, k.key, k.hash);
+          prevKeyPositions[k.key] = pos;
+        });
+      }
+
+      async function loadRing() {
+        try {
+          const res = await fetch("/ring");
+          const data = await res.json();
+
+          const oldKeys = JSON.stringify(keys.map((k) => k.server));
+          servers = data.servers || [];
+          keys = data.keys || [];
+          const newKeys = JSON.stringify(keys.map((k) => k.server));
+
+          // Update status
+          document.getElementById("status").textContent =
+            `Servers: ${servers.length} | Keys: ${keys.length}`;
+
+          // Animate if key mappings changed
+          if (oldKeys !== newKeys && Object.keys(prevKeyPositions).length > 0) {
+            animateKeys(keys);
+          } else {
+            renderStatic();
+          }
+        } catch (err) {
+          console.error("Failed to load ring", err);
+        }
+      }
+
+      async function addServer() {
+        const res = await fetch("/add-server");
+        const data = await res.json();
+        if (data.ok) {
+          console.log("Added:", data.server);
+          loadRing();
+        }
+      }
+
+      async function removeServer() {
+        const res = await fetch("/remove-server");
+        const data = await res.json();
+        if (data.ok) {
+          console.log("Removed:", data.removed);
+          loadRing();
+        }
+      }
+
+      loadRing();
+      setInterval(() => {
+        if (!animating) loadRing();
+      }, 2000);
+    </script>
+  </body>
+</html>

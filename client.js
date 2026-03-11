@@ -1,9 +1,20 @@
-const { getServerForKey } = require("./registry");
+const axios = require("axios");
+const ConsistentHash = require("./hashRing");
 
-const keys = ["user1", "user2", "user3", "user4", "user5"];
+async function run() {
+  const res = await axios.get("http://localhost:3000/servers");
 
-keys.forEach((key) => {
-  const server = getServerForKey(key);
+  const servers = res.data;
 
-  console.log(key, "->", server);
-});
+  const ring = new ConsistentHash();
+
+  servers.forEach((s) => ring.addServer(s));
+
+  const keys = ["user1", "user2", "user3", "user4", "user5"];
+
+  keys.forEach((k) => {
+    console.log(k, "->", ring.getServer(k));
+  });
+}
+
+run();
