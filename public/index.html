@@ -6,20 +6,21 @@
       body {
         font-family: Arial;
         text-align: center;
-        background: #1a1a2e;
-        color: white;
+        background: #f8f9fa;
+        color: #333;
         padding: 20px;
       }
 
       h2 {
-        color: #eee;
+        color: #2d3436;
         margin-bottom: 5px;
       }
 
       canvas {
-        border: 2px solid #333;
+        border: 2px solid #ddd;
         border-radius: 10px;
-        background: #16213e;
+        background: #ffffff;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
       }
 
       .controls {
@@ -30,30 +31,33 @@
         margin: 5px;
         padding: 12px 24px;
         cursor: pointer;
-        background: #0f3460;
+        background: #6c5ce7;
         color: white;
         border: none;
-        border-radius: 5px;
+        border-radius: 8px;
         font-size: 14px;
         transition: all 0.3s;
+        box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
       }
 
       button:hover {
-        background: #e94560;
+        background: #5f4dd0;
         transform: scale(1.05);
       }
 
       .btn-add {
         background: #00b894;
+        box-shadow: 0 2px 8px rgba(0, 184, 148, 0.3);
       }
       .btn-add:hover {
-        background: #00cec9;
+        background: #00a383;
       }
       .btn-remove {
-        background: #d63031;
+        background: #e17055;
+        box-shadow: 0 2px 8px rgba(225, 112, 85, 0.3);
       }
       .btn-remove:hover {
-        background: #ff7675;
+        background: #d35f44;
       }
 
       .legend {
@@ -67,6 +71,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        color: #555;
       }
 
       .legend-dot {
@@ -76,10 +81,10 @@
       }
 
       .server-dot {
-        background: #4fc3f7;
+        background: #0984e3;
       }
       .key-dot {
-        background: #ef5350;
+        background: #e17055;
       }
 
       .status {
@@ -128,10 +133,9 @@
 
       let servers = [];
       let keys = [];
-      let prevKeyPositions = {}; // Store previous positions for animation
+      let prevKeyPositions = {};
       let animating = false;
 
-      // Format hash for display
       function formatHash(hash) {
         if (hash >= 1000000) return (hash / 1000000).toFixed(1) + "M";
         if (hash >= 1000) return (hash / 1000).toFixed(1) + "K";
@@ -141,14 +145,14 @@
       function drawRing() {
         ctx.clearRect(0, 0, 700, 700);
 
-        // Draw outer ring with gradient
+        // Draw outer ring
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-        ctx.strokeStyle = "#555";
+        ctx.strokeStyle = "#ddd";
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Draw ring labels (0, 2^32/4, 2^32/2, 3*2^32/4)
+        // Draw ring labels
         const labels = [
           { pos: 0, text: "0" },
           { pos: 0.25, text: "2³⁰" },
@@ -161,12 +165,11 @@
           const x = centerX + (radius + 25) * Math.cos(angle);
           const y = centerY + (radius + 25) * Math.sin(angle);
 
-          ctx.fillStyle = "#666";
+          ctx.fillStyle = "#999";
           ctx.font = "bold 11px Arial";
           ctx.textAlign = "center";
           ctx.fillText(label.text, x, y + 4);
 
-          // Draw tick mark
           const tickX1 = centerX + radius * Math.cos(angle);
           const tickY1 = centerY + radius * Math.sin(angle);
           const tickX2 = centerX + (radius + 8) * Math.cos(angle);
@@ -175,7 +178,7 @@
           ctx.beginPath();
           ctx.moveTo(tickX1, tickY1);
           ctx.lineTo(tickX2, tickY2);
-          ctx.strokeStyle = "#666";
+          ctx.strokeStyle = "#bbb";
           ctx.lineWidth = 2;
           ctx.stroke();
         });
@@ -187,23 +190,20 @@
         const serverX = centerX + radius * Math.cos(serverAngle);
         const serverY = centerY + radius * Math.sin(serverAngle);
 
-        // Calculate intermediate point based on progress
         const currentX = keyX + (serverX - keyX) * progress;
         const currentY = keyY + (serverY - keyY) * progress;
 
-        // Glow effect
         ctx.beginPath();
         ctx.moveTo(keyX, keyY);
         ctx.lineTo(currentX, currentY);
-        ctx.strokeStyle = "rgba(255, 107, 107, 0.6)";
+        ctx.strokeStyle = "rgba(225, 112, 85, 0.4)";
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // Main line
         ctx.beginPath();
         ctx.moveTo(keyX, keyY);
         ctx.lineTo(currentX, currentY);
-        ctx.strokeStyle = "#ff6b6b";
+        ctx.strokeStyle = "#e17055";
         ctx.lineWidth = 2;
         ctx.stroke();
       }
@@ -212,39 +212,37 @@
         const x = centerX + radius * Math.cos(angle);
         const y = centerY + radius * Math.sin(angle);
 
-        // Glow effect
+        // Glow
         ctx.beginPath();
         ctx.arc(x, y, 14, 0, 2 * Math.PI);
-        ctx.fillStyle = "rgba(79, 195, 247, 0.3)";
+        ctx.fillStyle = "rgba(9, 132, 227, 0.2)";
         ctx.fill();
 
-        // Main node
+        // Node
         ctx.beginPath();
         ctx.arc(x, y, 10, 0, 2 * Math.PI);
-        ctx.fillStyle = "#4fc3f7";
+        ctx.fillStyle = "#0984e3";
         ctx.fill();
 
         // Label
-        ctx.fillStyle = "white";
+        ctx.fillStyle = "#333";
         ctx.font = "bold 11px Arial";
         ctx.textAlign = "left";
         ctx.fillText(label, x + 15, y);
 
-        // Hash value
-        ctx.fillStyle = "#888";
+        // Hash
+        ctx.fillStyle = "#999";
         ctx.font = "9px Arial";
         ctx.fillText(`h:${formatHash(hash)}`, x + 15, y + 12);
       }
 
       function drawKey(x, y, label, hash) {
-        // Node
         ctx.beginPath();
         ctx.arc(x, y, 6, 0, 2 * Math.PI);
-        ctx.fillStyle = "#ef5350";
+        ctx.fillStyle = "#e17055";
         ctx.fill();
 
-        // Label with hash
-        ctx.fillStyle = "#ddd";
+        ctx.fillStyle = "#555";
         ctx.font = "10px Arial";
         ctx.textAlign = "left";
         ctx.fillText(`${label} (${formatHash(hash)})`, x + 10, y + 4);
@@ -282,24 +280,21 @@
 
         function frame(time) {
           const progress = Math.min((time - startTime) / duration, 1);
-          const easeProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+          const easeProgress = 1 - Math.pow(1 - progress, 3);
 
           drawRing();
 
-          // Draw servers
           servers.forEach((s) => {
             const angle = (s.hash / MAX_HASH) * 2 * Math.PI - Math.PI / 2;
             drawServer(angle, s.server, s.hash);
           });
 
-          // Draw keys with animation
           keyAnimations.forEach((k) => {
             const x = k.startX + (k.endX - k.startX) * easeProgress;
             const y = k.startY + (k.endY - k.startY) * easeProgress;
             const currentAngle =
               k.startAngle + (k.endAngle - k.startAngle) * easeProgress;
 
-            // Draw line to server
             const targetServer = servers.find((s) => s.server === k.server);
             if (targetServer) {
               const serverAngle =
@@ -313,7 +308,6 @@
           if (progress < 1) {
             requestAnimationFrame(frame);
           } else {
-            // Store final positions
             keyAnimations.forEach((k) => {
               prevKeyPositions[k.key] = {
                 x: k.endX,
@@ -332,17 +326,14 @@
       function renderStatic() {
         drawRing();
 
-        // Draw servers
         servers.forEach((s) => {
           const angle = (s.hash / MAX_HASH) * 2 * Math.PI - Math.PI / 2;
           drawServer(angle, s.server, s.hash);
         });
 
-        // Draw keys
         keys.forEach((k) => {
           const pos = getKeyPosition(k.hash);
 
-          // Draw line to server
           const targetServer = servers.find((s) => s.server === k.server);
           if (targetServer) {
             const serverAngle =
@@ -365,11 +356,9 @@
           keys = data.keys || [];
           const newKeys = JSON.stringify(keys.map((k) => k.server));
 
-          // Update status
           document.getElementById("status").textContent =
             `Servers: ${servers.length} | Keys: ${keys.length}`;
 
-          // Animate if key mappings changed
           if (oldKeys !== newKeys && Object.keys(prevKeyPositions).length > 0) {
             animateKeys(keys);
           } else {
@@ -383,19 +372,13 @@
       async function addServer() {
         const res = await fetch("/add-server");
         const data = await res.json();
-        if (data.ok) {
-          console.log("Added:", data.server);
-          loadRing();
-        }
+        if (data.ok) loadRing();
       }
 
       async function removeServer() {
         const res = await fetch("/remove-server");
         const data = await res.json();
-        if (data.ok) {
-          console.log("Removed:", data.removed);
-          loadRing();
-        }
+        if (data.ok) loadRing();
       }
 
       loadRing();
